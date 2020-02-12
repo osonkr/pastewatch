@@ -11,7 +11,7 @@ pastewatch configurations available:
 | term         | TERMS (comma separated) | list   | Terms to watch new pastebins for         |         | TERMS=golang,pastebin --term golang --term pastebin | No       |
 | interval     | REQUEST_INTERVAL        | int    | Interval to request bins at (in seconds) | 30      | REQUEST_INTERVAL=30 --interval 30                   | No       |
 | limit        | REQUEST_LIMIT           | int    | Number of bins to retrieve per request   | 100     | REQUEST_LIMIT=100 --limit 100                       | No       |
-
+| log-file     | LOG_FILE                | string | Path to log file, file will be created if one doesn't exist   |         | LOG_FILE=/var/log/pastewatch.log --log-file /var/log/pastewatch.log | No
 
 #### From Docker:
 
@@ -41,14 +41,23 @@ spec:
       labels:
         run: pastewatch
     spec:
+      volumes:
+        - name: pastewatch-volume
+          persistentVolumeClaim:
+            claimName: pastewatch-vc
       containers:
       - image: daviddiefenderfer/pastewatch
         name: pastewatch
         resources: {}
+        env:
+          - name: LOG_FILE
+            value: /var/log/pastewatch.txt
         envFrom:
           - secretRef:
               name: pastewatch-secrets
-status: {}
+        volumeMounts:
+          - name: pastewatch-volume
+            mountPath: /var/log
 ```
 
 ## TODO:
@@ -56,7 +65,7 @@ status: {}
 Ideally I'd like for this to save findings to a database and use pub/sub service to send alerts
 
  - [ ] Allow findings to be saved to DB
- - [ ] Write findings to optional logs file
+ - [x] Write findings to optional logs file
  - [ ] Add drivers for other "pastebin"-like sites
    - [ ] Add support to run from proxy as these will likely be actually scraping pages
 
