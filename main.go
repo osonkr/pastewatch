@@ -81,14 +81,17 @@ func defaultUnlessEnv(key string, defaultValue string) string {
 
 func main() {
 	var term termsArray
+	var logFile *os.File
 
 	defaultInterval   := defaultIntUnlessEnv("REQUEST_INTERVAL", 30)
 	defaultLimit      := defaultIntUnlessEnv("REQUEST_LIMIT", 100)
 	defaultPastbinKey := defaultUnlessEnv("PASTEBINKEY", "")
+	defaultLogFile    := defaultUnlessEnv("LOG_FILE", "")
 
 	pastebinKey      := flag.String("pastebin-key", defaultPastbinKey, "Pastebin Developer API Key.")
 	requestInterval  := flag.Int("interval", defaultInterval, "Interval to request bins at.")
 	requestLimit	 := flag.Int("limit", defaultLimit, "Number of bins to retrieve per request.")
+	logFileFlag      := flag.String("log-file", defaultLogFile, "Log file to append results to.")
 
 	flag.Var(&term, "term", "Terms to watch new pastebins for.")
 
@@ -114,7 +117,15 @@ func main() {
 	log.Printf("[Pastebin] Watching new bins for match on %s\n", opts.Terms)
 	go watchPasteBins(*pastebinKey, *requestInterval, opts, resultsChannel)
 
+	if *logFileFlag != "" {
+		logFile, _ = os.OpenFile(*logFileFlag, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	}
+
 	for result := range resultsChannel {
 		log.Printf("[Pastebin] Bin matched search criteria: %s - Title: %s - URL: %s\n", result.Matched, result.Title, result.FullUrl)
+
+		if logFile != nil {
+			fmt.Fprintf(logFile, fmt.Sprintf("Title: %s\tURL: %s\tMatched: %s\n", result.Title, result.FullUrl, result.Matched))
+		}
 	}
 }
