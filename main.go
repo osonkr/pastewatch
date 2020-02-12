@@ -6,6 +6,7 @@ import (
 	"github.com/daviddiefenderfer/pastewatch/pkg/scraper"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -62,21 +63,44 @@ func watchPasteBins(key string, interval int, options *scraper.PastebinSearchOpt
 	}
 }
 
+func defaultIntUnlessEnv(key string, defaultValue int) int {
+	if value, err := strconv.Atoi(defaultUnlessEnv(key, strconv.Itoa(defaultValue))); err != nil {
+		return value
+	}
+
+	return defaultValue
+}
+
+func defaultUnlessEnv(key string, defaultValue string) string {
+	if value, exists := os.LookupEnv(key); exists != false {
+		return value
+	}
+
+	return defaultValue
+}
+
 func main() {
 	var term termsArray
 
-	pastebinKey      := flag.String("pastebin-key", "", "Pastebin Developer API Key.")
-	requestInterval  := flag.Int("interval", 60, "Interval to request bins at.")
-	requestLimit	 := flag.Int("limit", 100, "Number of bins to retrieve per request.")
+	defaultInterval   := defaultIntUnlessEnv("REQUEST_INTERVAL", 30)
+	defaultLimit      := defaultIntUnlessEnv("REQUEST_LIMIT", 100)
+	defaultPastbinKey := defaultUnlessEnv("PASTEBINKEY", "")
+
+	pastebinKey      := flag.String("pastebin-key", defaultPastbinKey, "Pastebin Developer API Key.")
+	requestInterval  := flag.Int("interval", defaultInterval, "Interval to request bins at.")
+	requestLimit	 := flag.Int("limit", defaultLimit, "Number of bins to retrieve per request.")
 
 	flag.Var(&term, "term", "Terms to watch new pastebins for.")
 
 	flag.Parse()
 
-	resultsChannel := make(chan *scraper.PastebinResult)
+	if *pastebinKey == "" {
+		fmt.Println("Pastebin key required")
+		os.Exit(1)
+	}
 
 	if term == nil {
-		term = []string{""}
+		term = strings.Split(defaultUnlessEnv("TERMS", ""), ",")
 	}
 
 	opts := &scraper.PastebinSearchOptions{
@@ -84,6 +108,8 @@ func main() {
 		Limit: *requestLimit,
 		WithContent: true,
 	}
+
+	resultsChannel := make(chan *scraper.PastebinResult)
 
 	log.Printf("[Pastebin] Watching new bins for match on %s\n", opts.Terms)
 	go watchPasteBins(*pastebinKey, *requestInterval, opts, resultsChannel)
